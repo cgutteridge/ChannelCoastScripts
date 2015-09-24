@@ -8,15 +8,39 @@ use CoastLib;
 use strict;
 use warnings;
 
+# params: infile infile infile... outfile
+
 my $BASEDIR = "$FindBin::Bin/..";
-my $input = $ARGV[0];
-my $output = $ARGV[1];
-my $NODATA_color = 'red';
-my $min = 0;
-my $max = 255;
+my $output = pop @ARGV;
+my $input1 = shift @ARGV;
+my @other_inputs = @ARGV;
 
-my $lidar = CoastLib::readLidarAsc( $input );
-
+my $lidar = CoastLib::readLidarAsc( $input1 );
+foreach my $input2 ( @other_inputs )
+{
+	my $lidar2 = CoastLib::readLidarAsc( $input2 );
+	foreach my $metafield (qw/ cellsize ncols nrows xllcorner yllcorner /)
+	{
+		if( $lidar->{$metafield} ne $lidar2->{$metafield} )
+		{
+			die "Metafield $metafield mismatch: ".$lidar->{$metafield}." vs ".$lidar2->{$metafield}	;
+		}
+	}
+	for( my $y=0; $y<$lidar->{nrows}; ++$y )
+	{
+		for( my $x=0; $x<$lidar->{nrows}; ++$x )
+		{
+			if( $lidar->{cells}->[$y]->[$x] == $lidar->{NODATA_value} 
+			 && $lidar2->{cells}->[$y]->[$x] != $lidar2->{NODATA_value} )
+			{
+				$lidar->{cells}->[$y]->[$x] = $lidar2->{cells}->[$y]->[$x];
+			}
+		}
+	}		
+}
+$lidar->write( $output );
+exit;
+__DATA__
 #ROW: foreach my $row ( @$lidar->{cells} )
 #{
 #	CELL: foreach my $cell ( @$row )

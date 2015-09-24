@@ -1,0 +1,83 @@
+#!/usr/bin/perl
+
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use Image::Magick;
+use Data::Dumper;
+use CoastLib;
+use strict;
+use warnings;
+
+# params: infile infile infile... outfile
+
+my $BASEDIR = "$FindBin::Bin/..";
+my $output = pop @ARGV;
+my @inputs = @ARGV;
+
+my @lidars = ();
+my $xllcorner;
+my $yllcorner;
+my $xurcorner; #urcorner is the cell up and to the right of the top right cell
+my $yurcorner; 
+my $cellsize;
+my $NODATA_value;
+INPUT: foreach my $input ( @inputs )
+{
+	my $lidar = CoastLib::readLidarAsc( $input );
+	push @lidars, $lidar;
+	my $a_xllcorner = $lidar->{xllcorner};
+	my $a_yllcorner = $lidar->{yllcorner};
+	my $a_xurcorner = $lidar->{xllcorner} + $lidar->{ncols}*$lidar->{cellsize};
+	my $a_yurcorner = $lidar->{yllcorner} + $lidar->{nrows}*$lidar->{cellsize};
+	if( !defined $xllcorner )
+	{
+		$xllcorner = $a_xllcorner;
+		$yllcorner = $a_yllcorner;
+		$xurcorner = $a_xurcorner;
+		$yurcorner = $a_yurcorner;
+		$cellsize = $lidar->{cellsize};
+		$NODATA_value = $lidar->{NODATA_value};
+		next INPUT;
+	}
+	if( $cellsize != $lidar->{cellsize} ) 
+	{
+		die "Cellsize mismatch";
+	}
+	if( $a_xllcorner < $xllcorner ) { $xllcorner = $a_xllcorner; }
+	if( $a_yllcorner < $yllcorner ) { $yllcorner = $a_yllcorner; }
+	if( $a_xurcorner > $xurcorner ) { $xurcorner = $a_xurcorner; }
+	if( $a_yurcorner > $yurcorner ) { $yurcorner = $a_yurcorner; }
+}
+my $nrows = ($yurcorner-$yllcorner)/$cellsize;
+my $ncols = ($xurcorner-$xllcorner)/$cellsize;
+my $out_lidar = bless { 
+	cellsize => $cellsize,
+	NODATA_value => $NODATA_value,
+	xllcorner => $xllcorner,
+	yllcorner => $yllcorner,
+	nrows => $nrows,
+	ncols => $ncols,
+	cells => [],
+}, "CoastLib::LidarAsc";
+for( my $y=0; $y<$nrows; ++$y )
+{
+	for( my $x=0; $x<$ncols; ++$x )
+	{
+		$out_lidar->{cells}->[$y]->[$x] = $NODATA_value;
+	}
+}
+foreach my $lidar ( @lidars )
+{
+	my $offsetx = ($lidar->{xllcorner}-$xllcorner)/$cellsize;
+	my $offsety = $nrows-$lidar->{nrows}-(($lidar->{yllcorner}-$yllcorner)/$cellsize);
+	for( my $y=0; $y<$lidar->{nrows}; ++$y )
+	{
+		CELL: for( my $x=0; $x<$lidar->{ncols}; ++$x )
+		{
+			next CELL if $lidar->{cells}->[$y]->[$x] == $lidar->{NODATA_value};
+			$out_lidar->{cells}->[$offsety+$y]->[$offsetx+$x] = $lidar->{cells}->[$y]->[$x];
+		}
+	}
+}
+$out_lidar->write( $output );
+exit;

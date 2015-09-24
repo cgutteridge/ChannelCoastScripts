@@ -3,7 +3,8 @@
 # assumes GDAL & ECW libraries are installed and on the path
 
 use FindBin;
-use lib "$FindBin::Bin/../lib/perl";
+use lib "$FindBin::Bin/lib";
+use CoastLib;
 my $BASEDIR = "$FindBin::Bin/..";
 my $source = "$BASEDIR/Data/Aerial/2013/ECW";
 my $target = "$BASEDIR/Data/Aerial/2013/JPEG";
@@ -22,7 +23,7 @@ FILE: foreach my $file ( @files )
 }
 
 
-mkdir unless -d $target;
+mkdir $target unless -d $target;
 
 exit;
 

@@ -1,0 +1,77 @@
+#!/usr/bin/perl
+
+use Image::Magick;
+use Data::Dumper;
+use strict;
+use warnings;
+
+my $input = $ARGV[0];
+my $output = $ARGV[1];
+my $NODATA_color = 'red';
+
+my $metadata = {};
+my $cells = [];
+open( my $infh, "<", $input ) || die( "failed to read $input: $!" );
+for( 1..6 )
+{
+	my $line = readline( $infh );
+	$line =~ s/[\n\r]//g;
+	$line =~ m/^([^\s]+)\s+(.*)$/;
+	$metadata->{$1} = $2;
+}
+while( my $line = readline( $infh ) )
+{
+	$line =~ s/[\n\r]//g;
+	push @$cells,[split( / /, $line )];
+}
+close( $infh );
+
+#ncols         500
+#nrows         500
+#xllcorner     453500
+#yllcorner     77000
+#cellsize      1
+#NODATA_value  -9999
+
+my $max = -999999;
+my $min = 999999;
+ROW: foreach my $row ( @$cells )
+{
+	CELL: foreach my $cell ( @$row )
+	{
+		next CELL if( $cell == $metadata->{NODATA_value} );
+		if( $cell > $max ) { $max = $cell; }
+		if( $cell < $min ) { $min = $cell; }
+	}
+}
+
+$min = 0;
+$max = 255;
+
+
+my $image = Image::Magick->new;
+$image->Set(size=>$metadata->{'ncols'}.'x'.$metadata->{'nrows'});
+$image->ReadImage('canvas:white');
+
+for my $y ( 0..($metadata->{nrows}-1) )
+{
+	my $row = $cells->[$y];
+	for my $x ( 0..($metadata->{ncols}-1) )
+	{
+		my $cell = $row->[$x];
+		my $color;
+		if( $cell == $metadata->{NODATA_value} )
+		{
+			$color = $NODATA_color;
+		}
+		else
+		{
+			my $intensity = 255*255*($cell-$min)/($max-$min);
+			$color = "$intensity,$intensity,$intensity,0";
+		}
+		$image->Set("pixel[$x,$y]"=>$color);
+	}
+}
+$image->write( "png:$output" );
+
+

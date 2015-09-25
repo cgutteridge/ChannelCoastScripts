@@ -1,0 +1,120 @@
+#!/usr/bin/perl
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use CoastLib;
+
+my $BASEDIR = "$FindBin::Bin/../..";
+my $target = "$BASEDIR/Data";
+my $source = "$BASEDIR/CCO_DATA";
+
+use strict;
+use warnings;
+
+my @files = CoastLib::find_all( $source );
+FILE: foreach my $file ( @files )
+{
+	# try to work out the bits of this filename into something logical
+
+	# skip file formats we don't care about
+	next FILE if( $file =~ /\.(txt|Tab|tab|xls|eww|pdf|xml|dbf|jpgw|xlsx)$/ ); 
+
+	my @path = split( '/', $file );
+	shift @path;
+
+	my $top = shift @path;
+
+	my $ok = $top =~ m/^(\d\d\d\d(_\d\d)?)_(lidar|bathy|aerial)/i;
+	if( !$ok ) 
+	{	
+		die "failed to match $top in top regexp";
+	}
+	my $year = $1;
+	my $type = { lidar=>"LIDAR", bathy=>"Bathy", aerial=>"Aerial" }->{lc $3};
+	if( !defined $type ) { die "dang $3"; }
+	my $subtype;
+	#print $top." :: $year :: $type\n";
+	#print join( " / ", @path )."\n";
+
+	if( $path[0] =~ m/^[A-Z][A-Z](\d\d)(\d\d).*\.asc$/i )
+	{
+		CoastLib::file_copy( $source."/".$file, "$target/$type/$year/ASCII/$1_$2.asc" );
+		next FILE;
+	}
+	if( $path[0] =~ m/^[A-Z][A-Z](\d\d)(\d\d).*\.ecw$/i )
+	{
+		CoastLib::file_copy( $source."/".$file, "$target/$type/$year/ECW/$1_$2.ecw" );
+		next FILE;
+	}
+
+	$subtype = "ASCII_Surface" if( $path[0] eq "ASCII" ); 
+	$subtype = "ASCII_Surface" if( $path[0] eq "DSM" ); 
+	$subtype = "ASCII_Terrain" if( $path[0] eq "DTM" ); 
+	$subtype = "XYZ" if( $path[0] eq "XYZ" ); 
+
+	die "No SUBTYPE for $path[0]" if !defined $subtype;
+	shift @path;
+
+	if( $path[0] =~ m/^[A-Z][A-Z](\d\d)(\d\d)(ne|se|nw|sw).*\.asc$/i )
+	{
+		CoastLib::file_copy( $source."/".$file, "$target/$type/$year/$subtype-500m/$1_$2_$3.asc" );
+		next FILE;
+	}
+	if( $path[0] =~ m/^[A-Z][A-Z](\d\d)(\d\d).*\.asc$/i )
+	{
+		CoastLib::file_copy( $source."/".$file, "$target/$type/$year/$subtype/$1_$2.asc" );
+		next FILE;
+	}
+	if( $path[0] =~ m/^[A-Z][A-Z](\d\d)(\d\d).*\.xyz$/i )
+	{
+		CoastLib::file_copy( $source."/".$file, "$target/$type/$year/$subtype/$1_$2.xyz" );
+		next FILE;
+	}
+
+	if( $path[0] eq "DSM" )
+	{
+		if( $subtype eq "XYZ" )
+		{
+			$subtype = "XYZ_Surface";
+		}
+		else
+		{
+			$subtype = "ASCII_Surface";
+		}
+	}
+	if( $path[0] eq "DTM" )
+	{
+		if( $subtype eq "XYZ" )
+		{
+			$subtype = "XYZ_Terrain";
+		}
+		else
+		{
+			$subtype = "ASCII_Terrain";
+		}
+	}
+	$subtype = "JPEG" if( $path[0] eq "Jpegs" ); 
+
+	die "No SUBTYPE for $path[0]" if !defined $subtype;
+	shift @path;
+
+	if( $path[0] =~ m/^[A-Z][A-Z](\d\d)(\d\d)(ne|se|nw|sw).*\.xyz$/i )
+	{
+		CoastLib::file_copy( $source."/".$file, "$target/$type/$year/$subtype-500m/$1_$2_$3.xyz" );
+		next FILE;
+	}
+	if( $path[0] =~ m/^[A-Z][A-Z](\d\d)(\d\d)(ne|se|nw|sw).*\.asc$/i )
+	{
+		CoastLib::file_copy( $source."/".$file, "$target/$type/$year/$subtype-500m/$1_$2_$3.asc" );
+		next FILE;
+	}
+	if( $path[0] =~ m/^[A-Z][A-Z](\d\d)(\d\d).*\.(asc|xyz|jpg)$/i )
+	{
+		CoastLib::file_copy( $source."/".$file, "$target/$type/$year/$subtype/$1_$2.$3" );
+		next FILE;
+	}
+
+
+	print $path[0]."\n";
+}
+exit;

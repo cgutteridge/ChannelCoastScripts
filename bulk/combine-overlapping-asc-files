@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use CoastLib;
+use Data::Dumper;
+
+my $BASEDIR = "$FindBin::Bin/../..";
+
+use strict;
+use warnings;
+
+my $config = [
+[ "Data/LIDAR/2007_08/ASCII_Surface-500m"=>"Data/LIDAR/2007_08/ASCII_Surface" ],
+#[ "Data/LIDAR/2007_08/ASCII_Terrain-500m"=>"Data/LIDAR/2007_08/ASCII_Terrain" ],
+#[ "Data/LIDAR/2011/ASCII_Surface-500m"=>"Data/LIDAR/2011/ASCII_Surface" ],
+#[ "Data/LIDAR/2011/ASCII_Surface-500m"=>"Data/LIDAR/2012/ASCII_Surface" ],
+];
+
+foreach my $task ( @$config )
+{
+	my $source = $BASEDIR."/".$task->[0];
+	my @files = CoastLib::find_all( $source );
+	my $km = {};
+	foreach my $file ( @files )
+	{
+		$file =~ m/^\/(\d\d_\d\d)_..\.asc$/;
+		push @{$km->{$1}}, $file;
+	}
+	print Dumper( $km );
+}
+
+

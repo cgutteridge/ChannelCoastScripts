@@ -44,7 +44,10 @@ for my $y ( 0..($lidar->{nrows}-1) )
 		}
 		else
 		{
-			my $intensity = 255*255*($cell-$min)/($max-$min);
+			my $ratio = ($cell-$min)/($max-$min);
+			$ratio=0 if( $ratio < 0 );
+			$ratio=1 if( $ratio > 1 );
+			my $intensity = 255*255*$ratio;
 			$color = "$intensity,$intensity,$intensity,0";
 		}
 		$image->Set("pixel[$x,$y]"=>$color);

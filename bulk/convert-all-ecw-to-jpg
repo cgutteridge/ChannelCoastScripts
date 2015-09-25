@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+
+# assumes GDAL & ECW libraries are installed and on the path
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use CoastLib;
+my $BASEDIR = "$FindBin::Bin/../..";
+my $source = "$BASEDIR/Data/Aerial/2013/ECW";
+my $target = "$BASEDIR/Data/Aerial/2013/JPEG";
+
+use strict;
+use warnings;
+
+
+my @files = find_all( $source );
+my $sets = {};
+FILE: foreach my $file ( @files )
+{
+	# try to work out the bits of this filename into something logical
+	print $file."\n";
+	$file =~ m/^(\d\d_\d\d)\.ecw(.*?)$/;
+}
+
+
+mkdir $target unless -d $target;
+
+exit;
+
+sub find_all
+{
+	my( $dir, $path ) = @_;
+	
+	$path = "" if !defined $path;
+
+	my @files = ();
+	my @dirs = ();
+	opendir( my $dh, $dir ) || die "Failed to readdir $dir\n";
+	while( my $file = readdir( $dh ) )
+	{
+		next if( $file eq "." );
+		next if( $file eq ".." );
+		if( -d "$dir/$file" )
+		{
+			push @dirs, $file;
+		}
+		else
+		{
+			push @files, $path."/".$file;
+		}
+	}
+	closedir( $dh );
+
+	foreach my $sub_dir ( @dirs )
+	{
+		push @files, find_all( "$dir/$sub_dir", "$path/$sub_dir" );
+	}
+
+	return @files;
+}

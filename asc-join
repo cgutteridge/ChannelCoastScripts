@@ -50,34 +50,19 @@ INPUT: foreach my $input ( @inputs )
 }
 my $nrows = ($yurcorner-$yllcorner)/$cellsize;
 my $ncols = ($xurcorner-$xllcorner)/$cellsize;
-my $out_lidar = bless { 
+
+my $out_lidar = CoastLib::LidarAsc->new( 
 	cellsize => $cellsize,
 	NODATA_value => $NODATA_value,
 	xllcorner => $xllcorner,
 	yllcorner => $yllcorner,
 	nrows => $nrows,
-	ncols => $ncols,
-	cells => [],
-}, "CoastLib::LidarAsc";
-for( my $y=0; $y<$nrows; ++$y )
-{
-	for( my $x=0; $x<$ncols; ++$x )
-	{
-		$out_lidar->{cells}->[$y]->[$x] = $NODATA_value;
-	}
-}
+	ncols => $ncols
+);
+
 foreach my $lidar ( @lidars )
 {
-	my $offsetx = ($lidar->{xllcorner}-$xllcorner)/$cellsize;
-	my $offsety = $nrows-$lidar->{nrows}-(($lidar->{yllcorner}-$yllcorner)/$cellsize);
-	for( my $y=0; $y<$lidar->{nrows}; ++$y )
-	{
-		CELL: for( my $x=0; $x<$lidar->{ncols}; ++$x )
-		{
-			next CELL if $lidar->{cells}->[$y]->[$x] == $lidar->{NODATA_value};
-			$out_lidar->{cells}->[$offsety+$y]->[$offsetx+$x] = $lidar->{cells}->[$y]->[$x];
-		}
-	}
+	$out_lidar->add( $lidar );
 }
 $out_lidar->write( $output );
 exit;

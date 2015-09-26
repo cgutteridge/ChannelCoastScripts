@@ -3,31 +3,43 @@
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 use CoastLib;
+use LIDAR::ASCII;
 use Data::Dumper;
 
 my $BASEDIR = "$FindBin::Bin/../..";
+my $source = "$BASEDIR/Data";
 
 use strict;
 use warnings;
 
-my $config = [
-[ "Data/LIDAR/2007_08/ASCII_Surface-500m"=>"Data/LIDAR/2007_08/ASCII_Surface" ],
-#[ "Data/LIDAR/2007_08/ASCII_Terrain-500m"=>"Data/LIDAR/2007_08/ASCII_Terrain" ],
-#[ "Data/LIDAR/2011/ASCII_Surface-500m"=>"Data/LIDAR/2011/ASCII_Surface" ],
-#[ "Data/LIDAR/2011/ASCII_Surface-500m"=>"Data/LIDAR/2012/ASCII_Surface" ],
-];
-
-foreach my $task ( @$config )
+my @files = CoastLib::find_all( $source );
+my $map = {};
+foreach my $file ( sort @files )
 {
-	my $source = $BASEDIR."/".$task->[0];
-	my @files = CoastLib::find_all( $source );
-	my $km = {};
-	foreach my $file ( @files )
+	if( $file =~ m/^(.*\.asc)\.\d+$/ )
 	{
-		$file =~ m/^\/(\d\d_\d\d)_..\.asc$/;
-		push @{$km->{$1}}, $file;
+		push @{$map->{$1}},$file;	
 	}
-	print Dumper( $km );
 }
 
-
+foreach my $outfilename ( keys %$map )
+{
+	my $lidar;
+	INFILE: foreach my $infilename ( @{$map->{$outfilename}} )
+	{
+		# We'll only deal with cellsize = 1 
+		print "Reading: $infilename\n";
+		my $nextlidar = LIDAR::ASCII->read( "$source/$infilename" );
+		next INFILE if( $nextlidar->{cellsize} != 1 );
+		if( defined $lidar )
+		{
+			$lidar->add( $nextlidar );
+		}	
+		else
+		{
+			$lidar = $nextlidar;
+		}
+	}
+die if !defined $lidar;
+	$lidar->write( "$source/$outfilename" );
+}

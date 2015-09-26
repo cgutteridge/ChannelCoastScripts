@@ -1,0 +1,110 @@
+#!/usr/bin/perl
+
+# assumes imagemagic convert is in path
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use CoastLib;
+use LIDAR::ASCII;
+use Data::Dumper;
+
+my $BASEDIR = "$FindBin::Bin/../..";
+
+use strict;
+use warnings;
+
+my $SIZE = "40";
+
+my $config = [
+[ "Data/Aerial/2013/JPEG", "Data/Aerial/2013/JPEG_Thumbs", "Data/Aerial/2013/JPEG.html", "JPEG_Thumbs", "JPEG" ],
+[ "Data/LIDAR/2007_08/PNG_Surface/","Data/LIDAR/2007_08/PNG_Surface_Thumbs/","Data/LIDAR/2007_08/PNG_Surface.html","PNG_Surface_Thumbs", "PNG_Surface", ],
+[ "Data/LIDAR/2007_08/PNG_Terrain/","Data/LIDAR/2007_08/PNG_Terrain_Thumbs/","Data/LIDAR/2007_08/PNG_Terrain.html","PNG_Terrain_Thumbs", "PNG_Terrain", ],
+[ "Data/LIDAR/2011/PNG_Surface/","Data/LIDAR/2011/PNG_Surface_Thumbs/","Data/LIDAR/2011/PNG_Surface.html","PNG_Surface_Thumbs", "PNG_Surface", ],
+[ "Data/LIDAR/2012/PNG_Surface/","Data/LIDAR/2012/PNG_Surface_Thumbs/","Data/LIDAR/2012/PNG_Surface.html","PNG_Surface_Thumbs", "PNG_Surface", ],
+[ "Data/LIDAR/2013/PNG_Surface/","Data/LIDAR/2013/PNG_Surface_Thumbs/","Data/LIDAR/2013/PNG_Surface.html","PNG_Surface_Thumbs", "PNG_Surface", ],
+];
+
+my $cmd;
+foreach my $task ( @$config )
+{
+	print Dumper( $task );
+	my $source = $BASEDIR."/".$task->[0];
+	my $target = $BASEDIR."/".$task->[1];
+	my $html = $BASEDIR."/".$task->[2];
+	my $thumbrel = $task->[3];
+	my $picrel = $task->[4];
+	mkdir( $target ) unless -d $target;
+	my @files = CoastLib::find_all( $source );
+	my $grid = [];
+	foreach my $file ( @files )
+	{
+		if( $file =~ m/(\d\d)_(\d\d).(jpg|png)$/ )
+		{
+			my $y=$2;
+			my $x=$1;
+			if( $y < 50 ) { $y+=100; }
+			if( $x < 90 ) { $x+=100; }
+			$grid->[$y]->[$x] = "      <a href='$picrel/${1}_$2.$3'><img src='$thumbrel/${1}_$2.jpg' /></a>";
+		}
+	}
+
+	open( my $fh, ">", $html ) || die "can't write $html: $!";
+	print {$fh} <<END;
+<!doctype html>
+<html>
+<head>
+<style>
+table.geogrid td { 
+	width: ${SIZE}px; 
+	height: ${SIZE}px; 
+	border-bottom: solid 1px black; 
+	border-right: solid 1px black; 
+} 
+table.geogrid td.empty { 
+}
+table.geogrid { 
+	table-collapse: collapse; 
+	background-color: #ccc;
+}  
+table.geogrid img { 
+	display: block; 
+}
+</style>
+</head>
+<body>
+<table class='geogrid' cellspacing='0' cellpadding='0'>
+END
+	foreach my $row ( reverse @{$grid} )
+	{
+		print {$fh} "  <tr>\n";
+		splice( @$row, 0, 90 );
+		foreach my $cell ( @{$row} )
+		{
+			if( defined $cell )
+			{
+				print {$fh} "    <td>$cell</td>\n";
+			}
+			else
+			{
+				print {$fh} "    <td class='empty'></td>\n";
+			}
+		}
+		print {$fh} "  </tr>\n";
+	}
+	print {$fh} "</table>\n";
+	print {$fh} "</body>\n";
+	print {$fh} "</html>\n";
+	close $fh;
+
+	foreach my $file ( sort @files )
+	{
+		if( $file =~ m/(\d\d_\d\d)\.(jpg|png)$/ )
+		{
+			print $file."\n";
+			next if -e "$target/$file";
+			$cmd = "convert -thumbnail ${SIZE}x${SIZE} $source/$file $target/$1.jpg";
+			print "$cmd\n";
+			`$cmd`;
+		}
+	}
+}

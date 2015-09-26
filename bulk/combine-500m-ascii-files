@@ -3,7 +3,9 @@
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 use CoastLib;
+use LIDAR::ASCII;
 use Data::Dumper;
+use POSIX;
 
 my $BASEDIR = "$FindBin::Bin/../..";
 
@@ -12,22 +14,48 @@ use warnings;
 
 my $config = [
 [ "Data/LIDAR/2007_08/ASCII_Surface-500m"=>"Data/LIDAR/2007_08/ASCII_Surface" ],
-#[ "Data/LIDAR/2007_08/ASCII_Terrain-500m"=>"Data/LIDAR/2007_08/ASCII_Terrain" ],
-#[ "Data/LIDAR/2011/ASCII_Surface-500m"=>"Data/LIDAR/2011/ASCII_Surface" ],
-#[ "Data/LIDAR/2011/ASCII_Surface-500m"=>"Data/LIDAR/2012/ASCII_Surface" ],
+[ "Data/LIDAR/2007_08/ASCII_Terrain-500m"=>"Data/LIDAR/2007_08/ASCII_Terrain" ],
+[ "Data/LIDAR/2011/ASCII_Surface-500m"=>"Data/LIDAR/2011/ASCII_Surface" ],
+[ "Data/LIDAR/2011/ASCII_Surface-500m"=>"Data/LIDAR/2012/ASCII_Surface" ],
 ];
 
 foreach my $task ( @$config )
 {
 	my $source = $BASEDIR."/".$task->[0];
+	my $target = $BASEDIR."/".$task->[1];
+	mkdir( $target ) unless -d $target;
 	my @files = CoastLib::find_all( $source );
 	my $km = {};
 	foreach my $file ( @files )
 	{
-		$file =~ m/^\/(\d\d_\d\d)_..\.asc$/;
-		push @{$km->{$1}}, $file;
+		if( $file =~ m/^\/(\d\d_\d\d)_..\.asc$/ )
+		{
+			push @{$km->{$1}}, $file;
+		}
 	}
-	print Dumper( $km );
+	SQUAREKM: foreach my $zone ( keys %$km )
+	{
+		my @lidars = ();
+		FILE: foreach my $file ( @{$km->{$zone}} )
+		{
+			my $lidar = LIDAR::ASCII->read( $source."/".$file );
+			next FILE if $lidar->{cellsize} != 1;
+			push @lidars, $lidar;
+		}
+		next SQUAREKM if !scalar @lidars;
+		my $outlidar = LIDAR::ASCII->new( 
+			ncols=>1000,
+			nrows=>1000,
+			xllcorner=>POSIX::floor($lidars[0]->{xllcorner}/1000)*1000,
+			yllcorner=>POSIX::floor($lidars[0]->{yllcorner}/1000)*1000,
+			cellsize=>1,
+			NODATA_value=>-9999 );
+		foreach my $lidar ( @lidars )
+		{
+			$outlidar->add( $lidar );
+		}
+		$outlidar->write( $target."/".$zone.".asc" );
+	}
 }
 
 

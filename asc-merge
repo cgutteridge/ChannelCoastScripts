@@ -5,6 +5,7 @@ use lib "$FindBin::Bin/lib";
 use Image::Magick;
 use Data::Dumper;
 use CoastLib;
+use LIDAR::ASCII;
 use strict;
 use warnings;
 
@@ -15,10 +16,10 @@ my $output = pop @ARGV;
 my $input1 = shift @ARGV;
 my @other_inputs = @ARGV;
 
-my $lidar = CoastLib::readLidarAsc( $input1 );
+my $lidar = LIDAR::ASCII->read( $input1 );
 foreach my $input2 ( @other_inputs )
 {
-	my $lidar2 = CoastLib::readLidarAsc( $input2 );
+	my $lidar2 = LIDAR::ASCII->read( $input2 );
 	foreach my $metafield (qw/ cellsize ncols nrows xllcorner yllcorner /)
 	{
 		if( $lidar->{$metafield} ne $lidar2->{$metafield} )
@@ -40,40 +41,3 @@ foreach my $input2 ( @other_inputs )
 }
 $lidar->write( $output );
 exit;
-__DATA__
-#ROW: foreach my $row ( @$lidar->{cells} )
-#{
-#	CELL: foreach my $cell ( @$row )
-#	{
-#		next CELL if( $cell == $metadata->{NODATA_value} );
-#		if( $cell > $max ) { $max = $cell; }
-#		if( $cell < $min ) { $min = $cell; }
-#	}
-#}
-
-my $image = Image::Magick->new;
-$image->Set(size=>$lidar->{'ncols'}.'x'.$lidar->{'nrows'});
-$image->ReadImage('canvas:white');
-
-for my $y ( 0..($lidar->{nrows}-1) )
-{
-	my $row = $lidar->{cells}->[$y];
-	for my $x ( 0..($lidar->{ncols}-1) )
-	{
-		my $cell = $row->[$x];
-		my $color;
-		if( $cell == $lidar->{NODATA_value} )
-		{
-			$color = $NODATA_color;
-		}
-		else
-		{
-			my $intensity = 255*255*($cell-$min)/($max-$min);
-			$color = "$intensity,$intensity,$intensity,0";
-		}
-		$image->Set("pixel[$x,$y]"=>$color);
-	}
-}
-$image->write( "png:$output" );
-
-

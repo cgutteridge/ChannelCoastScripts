@@ -5,6 +5,7 @@ use lib "$FindBin::Bin/lib";
 use Image::Magick;
 use Data::Dumper;
 use CoastLib;
+use LIDAR::ASCII;
 use strict;
 use warnings;
 
@@ -23,7 +24,7 @@ my $cellsize;
 my $NODATA_value;
 INPUT: foreach my $input ( @inputs )
 {
-	my $lidar = CoastLib::readLidarAsc( $input );
+	my $lidar = LIDAR::ASCII->read( $input );
 	push @lidars, $lidar;
 	my $a_xllcorner = $lidar->{xllcorner};
 	my $a_yllcorner = $lidar->{yllcorner};
@@ -51,7 +52,7 @@ INPUT: foreach my $input ( @inputs )
 my $nrows = ($yurcorner-$yllcorner)/$cellsize;
 my $ncols = ($xurcorner-$xllcorner)/$cellsize;
 
-my $out_lidar = CoastLib::LidarAsc->new( 
+my $out_lidar = LIDAR::ASCII->new( 
 	cellsize => $cellsize,
 	NODATA_value => $NODATA_value,
 	xllcorner => $xllcorner,

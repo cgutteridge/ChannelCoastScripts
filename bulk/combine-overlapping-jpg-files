@@ -1,0 +1,47 @@
+#!/usr/bin/perl
+
+# assumes gdal_rasterize is in the path
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use CoastLib;
+use Data::Dumper;
+
+my $BASEDIR = "$FindBin::Bin/../..";
+my $source = "$BASEDIR/Data/Aerial/2013/ECW";
+my $target = "$BASEDIR/Data/Aerial/2013/JPEG";
+
+use strict;
+use warnings;
+
+my @files = CoastLib::find_all( $source );
+my $map = {};
+foreach my $file ( sort @files )
+{
+	if( $file =~ m/^\/(.*\.ecw)\.\d+$/ )
+	{
+		push @{$map->{$1}},$file;	
+	}
+}
+my $cmd;
+foreach my $outfilename ( keys %$map )
+{
+	print join( " ", @{$map->{$outfilename}} )." => $outfilename\n";
+	my @links = ();
+	for my $i (0..scalar @{$map->{$outfilename}}-1 )
+	{
+		my $infile = $map->{$outfilename}->[$i];
+		$cmd = "ln -s $source/$infile /tmp/$i.ecw";
+		print "$cmd\n";
+		`$cmd`;
+		push @links, "/tmp/$i.ecw";
+	}
+	$cmd = "gdal_merge.py ".join( " ", @links )." -o /tmp/tmp.vrt";
+	print "$cmd\n";
+	`$cmd`;
+	$cmd = "gdal_translate /tmp/tmp.vrt -of jpeg $target/$outfilename";
+	print "$cmd\n";
+	`$cmd`;
+	
+
+}

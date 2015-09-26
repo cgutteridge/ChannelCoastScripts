@@ -1,0 +1,43 @@
+#!/usr/bin/perl
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use CoastLib;
+use LIDAR::ASCII;
+use Data::Dumper;
+use POSIX;
+
+my $BASEDIR = "$FindBin::Bin/../..";
+
+use strict;
+use warnings;
+
+my $config = [
+#["Data/Bathy/2011/ASCII/", "Data/Bathy/2011/PNG/"],
+#["Data/Bathy/2013/ASCII/", "Data/Bathy/2013/PNG/"],
+["Data/LIDAR/2007_08/ASCII_Surface/", "Data/LIDAR/2007_08/PNG_Surface/"],
+["Data/LIDAR/2007_08/ASCII_Terrain/", "Data/LIDAR/2007_08/PNG_Terrain/"],
+["Data/LIDAR/2011/ASCII_Surface/", "Data/LIDAR/2011/PNG_Surface/"],
+["Data/LIDAR/2012/ASCII_Surface/", "Data/LIDAR/2012/PNG_Surface/"],
+["Data/LIDAR/2013/ASCII_Surface/", "Data/LIDAR/2013/PNG_Surface/"],
+];
+
+my $cmd;
+foreach my $task ( @$config )
+{
+	my $source = $BASEDIR."/".$task->[0];
+	my $target = $BASEDIR."/".$task->[1];
+	mkdir( $target ) unless -d $target;
+	my @files = CoastLib::find_all( $source );
+	foreach my $file ( @files )
+	{
+		if( $file =~ m/(\d\d_\d\d).asc$/ )
+		{
+			$cmd = "$BASEDIR/Scripts/asc-to-png $source/$file $target/$1.png";
+			print "$cmd\n";
+			`$cmd`;
+		}
+	}
+}
+
+

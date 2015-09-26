@@ -5,6 +5,7 @@ use lib "$FindBin::Bin/lib";
 use Image::Magick;
 use Data::Dumper;
 use CoastLib;
+use LIDAR::ASCII;
 use strict;
 use warnings;
 
@@ -15,7 +16,8 @@ my $NODATA_color = 'red';
 my $min = 0;
 my $max = 255;
 
-my $lidar = CoastLib::readLidarAsc( $input );
+my $lidar = LIDAR::ASCII->read( $input );
+if( !defined $lidar->{NODATA_value} ) { die "undefined NODATA_value: $input"; }
 
 #ROW: foreach my $row ( @$lidar->{cells} )
 #{
@@ -38,6 +40,7 @@ for my $y ( 0..($lidar->{nrows}-1) )
 	{
 		my $cell = $row->[$x];
 		my $color;
+		if( !defined $cell ) { die "undefined cell: $input $x,$y"; }
 		if( $cell == $lidar->{NODATA_value} )
 		{
 			$color = $NODATA_color;

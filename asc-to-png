@@ -8,6 +8,12 @@ use CoastLib;
 use LIDAR::ASCII;
 use strict;
 use warnings;
+use Getopt::Long;
+
+my $scale;
+GetOptions (
+                  "scale"  => \$scale)   # flag
+or die("Error in command line arguments\n");
 
 my $BASEDIR = "$FindBin::Bin/..";
 my $input = $ARGV[0];
@@ -19,15 +25,24 @@ my $max = 255;
 my $lidar = LIDAR::ASCII->read( $input );
 if( !defined $lidar->{NODATA_value} ) { die "undefined NODATA_value: $input"; }
 
-#ROW: foreach my $row ( @$lidar->{cells} )
-#{
-#	CELL: foreach my $cell ( @$row )
-#	{
-#		next CELL if( $cell == $metadata->{NODATA_value} );
-#		if( $cell > $max ) { $max = $cell; }
-#		if( $cell < $min ) { $min = $cell; }
-#	}
-#}
+if( $scale )
+{
+	$max = -1000;
+	$min = 10000;
+	for my $y ( 0..($lidar->{nrows}-1) )
+	{
+		my $row = $lidar->{cells}->[$y];
+		CELL: for my $x ( 0..($lidar->{ncols}-1) )
+		{
+			my $cell = $row->[$x];
+			if( !defined $cell ) { die "undefined cell: $input $x,$y"; }
+			if( $cell eq "" ) { die "undefined cell: $input $x,$y"; }
+			next CELL if( $cell == $lidar->{NODATA_value} );
+			if( $cell > $max ) { $max = $cell; }
+			if( $cell < $min ) { $min = $cell; }
+		}
+	}
+}
 
 my $image = Image::Magick->new;
 $image->Set(size=>$lidar->{'ncols'}.'x'.$lidar->{'nrows'});
@@ -41,6 +56,7 @@ for my $y ( 0..($lidar->{nrows}-1) )
 		my $cell = $row->[$x];
 		my $color;
 		if( !defined $cell ) { die "undefined cell: $input $x,$y"; }
+		if( $cell eq "" ) { die "undefined cell: $input $x,$y"; }
 		if( $cell == $lidar->{NODATA_value} )
 		{
 			$color = $NODATA_color;

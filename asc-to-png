@@ -11,8 +11,10 @@ use warnings;
 use Getopt::Long;
 
 my $scale;
+my $heal;
 GetOptions (
-                  "scale"  => \$scale)   # flag
+		  "heal" => \$heal,
+                  "scale"  => \$scale)   
 or die("Error in command line arguments\n");
 
 my $BASEDIR = "$FindBin::Bin/..";
@@ -24,6 +26,80 @@ my $max = 255;
 
 my $lidar = LIDAR::ASCII->read( $input );
 if( !defined $lidar->{NODATA_value} ) { die "undefined NODATA_value: $input"; }
+
+
+if( $heal )
+{
+	# find list of nodata cells
+	my @nodata = ();
+	for my $y ( 0..($lidar->{nrows}-1) )
+	{
+		my $row = $lidar->{cells}->[$y];
+		CELL: for my $x ( 0..($lidar->{ncols}-1) )
+		{
+			my $cell = $row->[$x];
+			if( !defined $cell ) { die "undefined cell: $input $x,$y"; }
+			if( $cell eq "" ) { die "undefined cell: $input $x,$y"; }
+			if( $cell == $lidar->{NODATA_value} )
+			{
+				push @nodata, [ $x, $y ];
+			}
+		}
+	}
+
+	# while still items in nodata list
+	while( scalar @nodata )
+	{
+		# make new list of nodata cells
+		my @newnodata = ();;
+
+		my @newdata = ();
+	
+		# for each current nodata cell
+		foreach my $xy ( @nodata )
+		{
+			# get non-null neighbour cells
+			my $ntotal = 0;
+			my $ncount = 0;
+			NXY: foreach my $nxy ( 
+				[ $xy->[0]+1, $xy->[1] ],
+				[ $xy->[0]-1, $xy->[1] ],
+				[ $xy->[0], $xy->[1]+1 ],
+				[ $xy->[0], $xy->[1]-1 ] )
+			{
+				next NXY if( $nxy->[0] < 0 );
+				next NXY if( $nxy->[0] >= $lidar->{ncols} );
+				next NXY if( $nxy->[1] < 0 );
+				next NXY if( $nxy->[1] >= $lidar->{nrows} );
+if( !defined $lidar->{cells}->[ $nxy->[1] ]->[ $nxy->[0] ] ) { print Dumper( $nxy ); exit; }
+				next NXY if( $lidar->{cells}->[ $nxy->[1] ]->[ $nxy->[0] ] == $lidar->{NODATA_value} );
+				$ntotal += $lidar->{cells}->[ $nxy->[1] ]->[ $nxy->[0] ];
+				$ncount ++;
+			}
+
+			# if cell has non-null neigbours, 
+			if( $ncount )
+			{
+				# add todo list to set cell to average of neighbours
+				push @newdata, [ $xy->[0], $xy->[1], $ntotal/$ncount ];
+			}
+			else
+			{
+				push @newnodata, $xy;
+				# add cell to the still-to do list
+			}
+		}
+
+		# apply todo list
+		foreach my $todo ( @newdata )
+		{
+			$lidar->{cells}->[ $todo->[1] ]->[ $todo->[0] ] = $todo->[2];
+		}	
+
+		# move new list over old list
+		@nodata = @newnodata;
+	}
+}
 
 if( $scale )
 {
@@ -74,4 +150,4 @@ for my $y ( 0..($lidar->{nrows}-1) )
 }
 $image->write( "png:$output" );
 
-
+exit;

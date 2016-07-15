@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+use FindBin;
+use lib "$FindBin::Bin/lib";
+use Image::Magick;
+use Data::Dumper;
+use CoastLib;
+use LIDAR::ASCII;
+use strict;
+use warnings;
+
+# params: infile infile infile... outfile
+
+my $BASEDIR = "$FindBin::Bin/..";
+my $output = pop @ARGV;
+my $input1 = shift @ARGV;
+my $input2 = shift @ARGV;
+my @other_inputs = @ARGV;
+
+my $lidar = LIDAR::ASCII->read( $input1 );
+my $lidar2 = LIDAR::ASCII->read( $input2 );
+
+
+foreach my $metafield (qw/ cellsize ncols nrows xllcorner yllcorner /)
+{
+	if( $lidar->{$metafield} ne $lidar2->{$metafield} )
+	{
+		die "Metafield $metafield mismatch: ".$lidar->{$metafield}." vs ".$lidar2->{$metafield}	;
+	}
+}
+for( my $y=0; $y<$lidar->{nrows}; ++$y )
+{
+	for( my $x=0; $x<$lidar->{nrows}; ++$x )
+	{
+		if( $lidar->{cells}->[$y]->[$x] != $lidar->{NODATA_value} 
+		 && $lidar2->{cells}->[$y]->[$x] != $lidar2->{NODATA_value} )
+		{
+			$lidar->{cells}->[$y]->[$x] -= $lidar2->{cells}->[$y]->[$x];
+		}
+	}
+}		
+
+$lidar->write( $output );
+exit;

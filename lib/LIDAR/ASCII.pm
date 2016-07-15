@@ -27,6 +27,8 @@ sub read
 	while( my $line = readline( $infh ) )
 	{
 		$line =~ s/[\n\r]//g;
+		$line =~ s/^ +//;
+		$line =~ s/ +$//;
 		push @{$lidar->{cells}},[split( / /, $line )];
 	}
 	close( $infh );
